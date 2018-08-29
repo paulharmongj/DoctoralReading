@@ -1,0 +1,111 @@
+---
+title: "Sparse Clustering Overview"
+author: "Paul Harmon"
+date: "August 29, 2018"
+output: 
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: github
+---
+
+```{r, echo=FALSE}
+htmltools::img(src = knitr::image_uri('msutrans.png'), 
+               alt = 'logo', 
+               style = 'position:absolute; top:1px; left:0px; padding:2px;height:100px;')
+
+               
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2);library(dplyr);library(plotly)
+library(tibble)
+```
+
+# Introduction
+This document is designed to cover some of the high points of sparse clustering and its implementation in R using the sparcl. 
+
+**A Note:** Sparcl package was removed from CRAN on 7/20/2018 "as check problems were not corrected despite reminders."(See page at https://cran.r-project.org/web/packages/sparcl/index.html.) However, there is another version out there by Kondo, Salibian-Bareera and Zamar (2016) called RSKC. 
+
+# How does Sparse Clustering Work?
+
+
+
+# Iplementations in R: 
+
+```{r, fig.align = 'center'}
+#installs and libraries the RSKC package
+#install.packages('RSKC')
+library(RSKC)
+
+#installs and libraries the Sparcl package (possibly deprecated)
+#install the most recent version then use R-studio to install from archived file
+#install.packages("C:/Users/r74t532/Downloads/sparcl_1.0.3.tar.gz", repos = NULL, type = "source")
+#devtools::install_version('sparcl',version = '1.0.3')
+```
+
+
+
+#Datasets 
+
+## NBA Players
+```{r}
+nba <- read.csv('data/na.csv', header = TRUE)
+
+#pca-based
+pc1 <- prcomp(nba[,-c(1,2,3)], scale = TRUE, center = TRUE)
+summary(pc1)
+
+#do some clustering
+library(mclust)
+modclust <- mclustBIC(pc1$x[,1:2])
+mc <- Mclust(pc1$x[,1:2], x = modclust)
+
+#build a dataframe
+dat1 <- tibble(pc1$x[,1],pc1$x[,2],mc$classification); names(dat1) <- c('s1','s2','class')
+
+#build a plot
+p <- ggplot(dat1) + geom_point(aes(s1,s2,color = factor(class))) + ggtitle("NBA Rookies 2017") + theme_classic()
+
+ggplotly(p)
+
+
+##################
+##Compare the Sparse Clustering Methods to this: 
+library(RSKC)
+spk <- RSKC(nba[,-c(1,2,3)], ncl = 3, alpha = 0, L1 = 1) # Sparse K-Means
+#see documentation but alpha = 0 and l1 = 1 gives sparse K means
+#to get "robust" sparse k-means, we need alpha >0 and L1 = 1
+
+rspk <- RSKC(nba[,-c(1,2,3)], ncl = 3, alpha = .5, L1 = 1) # Robust Sparse K-Means
+
+dat1$spk <- spk$labels
+dat1$rspk <- rspk$labels
+
+#gives the sparse k-means 
+p2 <- ggplot(dat1) + geom_point(aes(s1,s2,color = factor(spk))) + ggtitle("NBA Rookies 2017") + theme_classic()
+ggplotly(p2)
+
+
+#gives the robust sparse k-means
+p3 <- ggplot(dat1) + geom_point(aes(s1,s2,color = factor(rspk))) + ggtitle("NBA Rookies 2017") + theme_classic()
+ggplotly(p3)
+
+```
+
+
+
+## Carnegie Classifications
+In this case, we have $n = 335 institutions$ with 8 different characteristics. 
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
