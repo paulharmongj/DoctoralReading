@@ -1,7 +1,7 @@
 ---
 title: "Sparse Clustering Overview"
 author: "Paul Harmon"
-date: "August 29, 2018"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: 
   prettydoc::html_pretty:
     theme: tactile
@@ -19,7 +19,7 @@ htmltools::img(src = knitr::image_uri('msutrans.png'),
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2);library(dplyr);library(plotly)
-library(tibble)
+library(tibble); library(DT)
 ```
 
 # Introduction
@@ -33,23 +33,23 @@ This document is designed to cover some of the high points of sparse clustering 
 
 # Iplementations in R: 
 
-```{r, fig.align = 'center'}
+```{r, fig.align = 'center', message = FALSE}
 #installs and libraries the RSKC package
 #install.packages('RSKC')
-library(RSKC)
+suppressMessages(library(RSKC))
 
 #installs and libraries the Sparcl package (possibly deprecated)
 #install the most recent version then use R-studio to install from archived file
 #install.packages("C:/Users/r74t532/Downloads/sparcl_1.0.3.tar.gz", repos = NULL, type = "source")
 #devtools::install_version('sparcl',version = '1.0.3')
-library(sparcl) #works on my laptop but not OPA computer
+#library(sparcl) #works on my laptop but not OPA computer
 ```
 
 
 
 #Datasets 
 
-## NBA Players
+## NBA Rookies 2017
 ```{r}
 nba <- read.csv('data/na.csv', header = TRUE)
 
@@ -94,13 +94,35 @@ ggplotly(p3)
 
 ```
 
+###Assessment of Wine Data
 
-
-## Carnegie Classifications
-In this case, we have $n = 335 institutions$ with 8 different characteristics. 
 ```{r}
+wine <- read.csv('https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data', header = FALSE)
+names(wine) <- c("Class","Alcohol",'Malic Acid','Ash','Alcalinity of ash','Magnesium','Total phenols',
+                 'Flavanoids', 'Nonflavanoid phenols', 'Proanthocyanins','Color Intensity',
+                 'Hue','0d280/od315 of diluted wines','Proline')
+head(wine)
+
+#typical kmeans
+km.wine <- kmeans(wine, centers = 3)
+#sparse kmeans
+sparse.wine <- RSKC(wine, ncl = 3, alpha = 0, L1 = 1)
+#robust kmeans
+robust.wine <- RSKC(wine, ncl = 3, alpha = 0.5, L1 = 1)
+
+##compare cluster membership
+clusters <- tibble(wine$Class,km.wine$cluster,sparse.wine$labels, robust.wine$labels)
+datatable(clusters, options = list(pageLength = 5, scrollX = 75))
+
 
 ```
+
+
+
+#Some Key Questions:
+
+With PCA-based clustering, the visualization is pretty intuitive. You can show the clusters with a plot of the first two principal components (I suppose this would look pretty good even if you clustered on more than the first two PCs). However, this does not achieve variable selection/sparsity. 
+When using sparse clustering, what are the best ways to visualize? Should I look at the features that were selected and then use plots of them to demonstrate clusters? 
 
 
 
