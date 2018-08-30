@@ -42,6 +42,7 @@ library(RSKC)
 #install the most recent version then use R-studio to install from archived file
 #install.packages("C:/Users/r74t532/Downloads/sparcl_1.0.3.tar.gz", repos = NULL, type = "source")
 #devtools::install_version('sparcl',version = '1.0.3')
+library(sparcl) #works on my laptop but not OPA computer
 ```
 
 
