@@ -94,6 +94,20 @@ ggplotly(p3)
 
 ```
 
+Additionally, the 'sparcl' package can be used to perform sparse clustering (although it might not be available as it is currently not on CRAN and must be installed from an archive). Insofar as I know, it is the only implementation for sparse hierarchical clustering. 
+
+```{r}
+#sparcl package as well
+library(sparcl)
+KMeansSparseCluster(nba[,-c(1,2,3)], K = 3, wbounds = 2)
+#higher penalty on weights
+KMeansSparseCluster(nba[,-c(1,2,3)], K = 3, wbounds = 2400)
+```
+
+
+
+
+
 ###Assessment of Wine Data
 
 ```{r}
@@ -109,6 +123,9 @@ km.wine <- kmeans(wine, centers = 3)
 sparse.wine <- RSKC(wine, ncl = 3, alpha = 0, L1 = 1)
 #robust kmeans
 robust.wine <- RSKC(wine, ncl = 3, alpha = 0.5, L1 = 1)
+
+##look a bit at the 
+
 
 ##compare cluster membership
 clusters <- tibble(wine$Class,km.wine$cluster,sparse.wine$labels, robust.wine$labels)
