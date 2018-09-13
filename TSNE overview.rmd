@@ -1,0 +1,177 @@
+---
+title: "t-SNE Overview"
+author: "Paul Harmon"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: github
+---
+
+```{r, echo=FALSE}
+htmltools::img(src = knitr::image_uri('msutrans.png'), 
+               alt = 'logo', 
+               style = 'position:absolute; top:1px; left:0px; padding:2px;height:100px;')
+
+               
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2);library(dplyr);library(plotly)
+library(tibble); library(DT)
+library(mclust)
+```
+
+#Introduction
+This document covers details about t-distributed stochastic neighborhood embedding, known as t-SNE. T-SNE is a tool that is used for dimension reduction; it creates two-dimensional visualizations of higher dimensional data in a way that is supposed to **maintain local structure** on the low-dimensional space while assessing relationships in the high-dimensional space. 
+
+The work on t-SNE that I have paid most close attention to is by Laurens van der Maaten, and can be found at this link: https://lvdmaaten.github.io/tsne/. 
+
+Note that SNE exists without making use of Student's t distributions; however, the SNE version uses Gaussian distributions that make preserving local structure somewhat difficult. Most of the minimization of objective functions is done via gradient descent (and some methods require simulated annealing because the algorithm can get caught in local optima). 
+
+**Big sample size issues!!** Doing t-SNE on large datasets can be computationally slow. If you're going to do it on a big dataset, I'd recommend using the random-walk version that is discussed in the paper. 
+
+
+
+##What is t-SNE?
+
+##Implementations in R?
+
+There are two implementations in R: 
+
++ tsne function from 'tsne' package
++ Rtsne function from 'Rtsne' package
+
+They appear to be very similar. Both functions do an initial "whitening" dimension reduction step that involves something like a PCA on the original data before doing the actual t-SNE step. In 'tsne' you can deactivate the prior PCA by setting 'whiten = FALSE' and in 'Rtsne' you can set pca = FALSE. Further, both functions have measures of perplexity that need to be properly set. 
+
+
+# Testing t-SNE on Data
+
+##NBA Data
+Looking at the dataset of 2017 NBA rookies, we ought to find some structure that could be of use. '
+
+```{r, plot.align = 'center'}
+nba <- read.csv('data/na.csv', header = TRUE)
+library(Rtsne);library(tsne)
+
+nba.dat <- nba[,-c(1:3)]
+
+#using Rtsne
+rt1 <- Rtsne(nba.dat, dims = 2, initial_dims = 20, perplexity = 10)
+makeplot <- function(TSNEobject, names){
+  Y <- data.frame(TSNEobject$Y)
+  names(Y) <- c("dim1","dim2")
+  p <- ggplot(Y) + geom_point(aes(x=dim1, y = dim2), color = "hotpink", size = 2) + theme_bw()
+  p + ggtitle("TSNE Plot") + geom_text(aes(dim1,dim2, label = names))
+}
+
+ggplotly(makeplot(rt1, nba[,3]))
+
+```
+
+Interesting. Based on some other methods I've looked at these data with, I am not surprised to see the two groups form in such an obvious way. The larger cluster of players is the group of rookies that did not put up particulalry impressive statsitics across the season; the smaller cluster comprises the players who were contenders for end of the year awards such as Rookie of the Year and had fairly impressive seasons. 
+
+What's interesting is that at a local level, we see Mitchell and Simmons on opposite ends of the cluster. These were the top two performers that season - although their specializations were different. Mitchell was an offensive player who shot a lot of 3's and Simmons was a defensive specialist who had many blocks/rebounds etc. The way I am thinking about this is that the overall structure (the higher-dimensional piece) acts as a sort of proxy for player performance and the local structure has something to do with the differences on the lower-dimensional piece (differences in which stats were high/low). 
+
+Below, we can see what happens when we run the same model four different times. As expected, we obtain slightly different solutions in each case.  This is my main issue with this method - the results are not particularly stable because this algorithm gets trapped in local optima. 
+
+Note that setting the seed does give the same results. 
+```{r, plot.align = 'center'}
+#RT1
+plotlist <- list()
+for(j in 1:4){
+  rt1 <- Rtsne(nba.dat, dims = 2, initial_dims = 20, perplexity = 10)
+  plotlist[[j]] <- makeplot(rt1, rep("",nrow(nba)))
+}
+
+library(ggpubr)
+ggarrange(plotlist[[1]],plotlist[[2]],plotlist[[3]],plotlist[[4]])
+
+```
+
+
+When the seed is set at 75: 
+
+```{r, plot.align = 'center'}
+#RT1
+plotlist <- list()
+for(j in 1:4){
+  set.seed(75)
+  rt1 <- Rtsne(nba.dat, dims = 2, initial_dims = 20, perplexity = 10)
+  plotlist[[j]] <- makeplot(rt1, rep("",nrow(nba)))
+}
+
+library(ggpubr)
+ggarrange(plotlist[[1]],plotlist[[2]],plotlist[[3]],plotlist[[4]])
+
+```
+
+
+This also means that there is no direct comparison between r packages or perplexity measures within either function. I guess the key here is to examine which versions give the most reasonable output.
+
+###Without PCA
+
+Note that both functions utilize PCA (or some form of dimension reduction) prior to the creation of the lower-dimensional visualization. 
+
+
+
+
+###Different Perplexity Measures
+Notice that the only valid perplexity measures are between 0 and 16, anything larger gives an error that the perplexity measure is too large. In fact, when just running the function without specifying a given perplexity measure, we get the error because the default perplexity is too large for this problem. 
+
+Key Question: **How do we decide which perplexity value to use?**
+
+Below, we can see that a perplexity value that is very small leads to a tightly grouped cluster near the origin and one observation way out by itself. The perplexity of 5 gives a nicely separated grouping and the larger perplexity values give groupings that are not well-separated. While I am not entirely sure which case is the best (I tend to think 5 is our best bet), one thing is certain: The choice of perplexity matters a lot! 
+
+```{r, plot.align = 'center'}
+makeplot <- function(TSNEobject, names,index){
+  Y <- data.frame(TSNEobject$Y)
+  names(Y) <- c("dim1","dim2")
+  p <- ggplot(Y) + geom_point(aes(x=dim1, y = dim2), color = "hotpink", size = 2) + theme_bw()
+  p + ggtitle(paste("Perplexity of: ",index)) + geom_text(aes(dim1,dim2, label = names))
+}
+
+
+plotlist <- list()
+perplist <- c(1,5,10,15)
+for(j in 1:4){
+  set.seed(78)
+  rt1 <- Rtsne(nba.dat, dims = 2, initial_dims = 20, perplexity = perplist[j])
+  plotlist[[j]] <- makeplot(rt1, rep("",nrow(nba)), index = perplist[j])
+}
+
+library(ggpubr)
+ggarrange(plotlist[[1]],plotlist[[2]],plotlist[[3]],plotlist[[4]])
+
+```
+
+
+##Model Based Clustering on Results
+
+I tried some model-based clustering on the results to see what kind of groupings we would obtain, and the results were interesting. The BIC-optimized number of clusters was EEI (Equal Volume, Equal Shape and Diagonal distribution with orientation along the axes). While I would have preferred to see two categories, the key idea is that the groups were separated between the "good" rookies and the "bad" ones so this is an easy-to-cluster solution. 
+
+
+
+```{r, fig.align = 'center', fig.cap = 'Model-based clustering on T-SNE output'}
+rt1 <- Rtsne(nba.dat, dims = 2, initial_dims = 20, perplexity = 5)
+new_dat <- data.frame(rt1$Y); names(new_dat) <- c("dim1",'dim2')
+new_dat$name = paste(nba[,2],nba[,3])
+
+library(mclust)
+modclust <- mclustBIC(new_dat[,c('dim1','dim2')])
+mc <- Mclust(new_dat[,c('dim1','dim2')], x = modclust)
+
+p <- ggplot(new_dat) + geom_point(aes(x=dim1, y = dim2, label = name), color = mc$classification, size = 2) + theme_bw()
+ggplotly(p + ggtitle("Model-Based Clustering on T-SNE") + geom_text(aes(dim1,dim2, label = nba[,3])))
+
+```
+
+
+
+
+
+
+
+
+

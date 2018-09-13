@@ -1,0 +1,55 @@
+---
+title: "t-SNE Overview"
+author: "Paul Harmon"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: github
+---
+
+```{r, echo=FALSE}
+htmltools::img(src = knitr::image_uri('msutrans.png'), 
+               alt = 'logo', 
+               style = 'position:absolute; top:1px; left:0px; padding:2px;height:100px;')
+
+               
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2);library(dplyr);library(plotly)
+library(tibble); library(DT)
+```
+
+#Introduction
+This document covers details about t-distributed stochastic neighborhood embedding, known as t-SNE. T-SNE is a tool that is used for dimension reduction; it creates two-dimensional visualizations of higher dimensional data in a way that is supposed to **maintain local structure** on the low-dimensional space while assessing relationships in the high-dimensional space. 
+
+The work on t-SNE that I have paid most close attention to is by Laurens van der Maaten, and can be found at this link: https://lvdmaaten.github.io/tsne/. 
+
+Note that SNE exists without making use of Student's t distributions; however, the SNE version uses Gaussian distributions that make preserving local structure somewhat difficult. Most of the minimization of objective functions is done via gradient descent (and some methods require simulated annealing because the algorithm can get caught in local optima). 
+
+**Big sample size issues!!** Doing t-SNE on large datasets can be computationally slow. If you're going to do it on a big dataset, I'd recommend using the random-walk version that is discussed in the paper. 
+
+
+
+##What is t-SNE?
+
+##Implementations in R?
+
+There are two implementations in R: 
+
++ tsne function from 'tsne' package
++ Rtsne function from 'Rtsne' package
+
+They appear to be very similar. Both functions do an initial "whitening" dimension reduction step that involves something like a PCA on the original data before doing the actual t-SNE step. 
+
+
+# Testing t-SNE on Data
+
+
+
+
+
+
+
