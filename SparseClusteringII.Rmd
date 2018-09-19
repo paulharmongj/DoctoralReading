@@ -20,6 +20,7 @@ htmltools::img(src = knitr::image_uri('msutrans.png'),
 knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2);library(dplyr);library(plotly)
 library(tibble); library(DT); library(viridis)
+library(ggpubr)
 ```
 
 # Introduction
@@ -28,10 +29,15 @@ This document is designed to cover some of the high points of sparse clustering 
 **A Note:** Sparcl package was removed from CRAN on 7/20/2018 "as check problems were not corrected despite reminders."(See page at https://cran.r-project.org/web/packages/sparcl/index.html.) However, there is another version out there by Kondo, Salibian-Bareera and Zamar (2016) called RSKC. 
 
 # How does Sparse Clustering Work?
+Sparse clustering works to combine both the **dimension reduction** and the **clustering** into a single step. While Tibshirani and Witten (2010) implemented the sparse clustering on both K-means and hierarchical clustering methods, the method that seems to have been improved the most is the k-means version, which Kondo et. al. (2016) made some nice changes to. 
+
+The idea is simple: Add a weighting term $w_j$ to the objective function that is to be optimized (in this case, maximized) for each of the features in the dataset. Subject that weighting term to a lasso (L1-norm) penalty, allowing it to be set to 0 for certain features. This allows the algorithm to achieve sparsity (i.e. perform feature selection) and then perform clustering on those nonzero features. 
+
+Kondo takes this a step further. The original sparse k-means version had two big problems: **missingness** and **outliers**. Basically, it could only be used on complete cases and tended to pick up signals from features that were not important but happened to have large outlier values. Kondo et al. solve this problem by using a method called **trimmed k-means**, which takes the farthest outlying $\alpha*100$ percent of the points from the cluster centers (at each iteration, I think) and removes them from the algorithm, then runs k-means. 
 
 
 
-# Iplementations in R: 
+# Implementations in R: 
 
 ```{r, fig.align = 'center', message = FALSE}
 #installs and libraries the RSKC package
@@ -136,7 +142,7 @@ datatable(clusters, options = list(pageLength = 5, scrollX = 75))
 
 
 
-#Looking at the Carnegie Classifications
+# Looking at the Carnegie Classifications
 The Carnegie Classifications are calculated using 2 PCAs that form an aggregate and per-capita index. Then, clustering could be performed on the resulting scores (in the actual version, schools are subjectively grouped by their location relative to two arcs that split the plot into three groups). 
 
 Using the seven variables in the Carnegie Classifications, we can obtain a similar clustering solution without the initial dimension reduction step: 
@@ -156,8 +162,10 @@ cc2015percap.r<-data.frame(sapply(cc2015percap,minrank))
 
 
 #apply sparse clustering
-clust <- RSKC(cc2015.r[,-c(1:3)], ncl = 3, alpha = 0)
+clust <- RSKC(cc2015.r[,-c(1:3)], ncl = 3, alpha = .2)
 clust$labels
+clustUR <- RSKC(cc2015Ps[,-c(1,3)], ncl = 3, alpha = .2)
+clustUR$labels
 
 #table of clusters
 table(clust$labels, cc2015.r$BASIC2015)
@@ -171,7 +179,7 @@ pc.2015.percap <- prcomp(cc2015percap.r, scale = TRUE)
 
 Interestingly, you get much of the same behavior as was present when we tried doing the K-means clustering on the two indices - at least given the categories of the axes, the clustering is not remarkably different from what the Carnegie Classifications would obtain.  The clustering is not aligned with the y=x line in the way that we might like, but that is to be expected because the sparse K-means is looking at the data as an aggregate, not at the two correlated indices used in the Carnegie Classifications. 
 
-```{r, fig.align = 'center'}
+```{r, fig.align = 'center', fig.width = 13, fig.height = 4}
 #create df
 df1 <- tibble(pc.2015.rank$x[,1], pc.2015.percap$x[,1], cc2015Ps$BASIC2015, cc2015Ps$NAME)
 names(df1) <- c("AG","PC","BASIC","NAME")
@@ -179,17 +187,39 @@ ggplot(df1) + geom_point(aes(AG,-PC, color = factor(BASIC))) + scale_color_virid
 
 ##Add classifications from RSKC
 df1$SK <- clust$labels
-ggplot(df1) + geom_point(aes(AG,-PC, color = factor(SK))) + scale_color_viridis(option = "D",discrete = TRUE) + theme_classic() + ggtitle("Carnegie Classifications") + ylab("Per Capita") + xlab("Aggregate")
+df1$SKUR <- clustUR$labels
+p1 <- ggplot(df1) + geom_point(aes(AG,-PC, color = factor(SK))) + scale_color_viridis(option = "D",discrete = TRUE) + theme_classic() + ggtitle("RSKC on Ranked") + ylab("Per Capita") + xlab("Aggregate")
+
+p2 <- ggplot(df1) + geom_point(aes(AG,-PC, color = factor(SKUR))) + scale_color_viridis(option = "D",discrete = TRUE) + theme_classic() + ggtitle("RSKC on Raw Data") + ylab("Per Capita") + xlab("Aggregate")
+
+ggarrange(p1,p2)
+
+```
 
 
+## Different Trimming Proportions
+
+The plots below give the results on the sparse clustering on the raw data given different trimming proportions. 
+
+```{r, fig.align = 'center'}
+alpha <- c(0,5,10,20,50)
+plot_list <- list()
+for(j in 1:length(alpha)){
+  
+  clustUR <- RSKC(cc2015Ps[,-c(1,3)], ncl = 3, alpha = .2)
+  df1$SKUR <- clustUR$labels
+  p2 <- ggplot(df1) + geom_point(aes(AG,-PC, color = factor(SKUR))) + scale_color_viridis(option = "D",discrete = TRUE) + theme_classic() + ggtitle(paste("Raw with ",alpha[j]," Percent Trimmed")) + ylab("Per Capita") + xlab("Aggregate")
+  plot_list[[j]] <- p2
+}
+#lapply(plot_list, print)#how to remove this garbage output?
+plot_list
 ```
 
 
 
 
 
-
-#Some Key Questions:
+# Some Key Questions:
 
 With PCA-based clustering, the visualization is pretty intuitive. You can show the clusters with a plot of the first two principal components (I suppose this would look pretty good even if you clustered on more than the first two PCs). However, this does not achieve variable selection/sparsity. 
 When using sparse clustering, what are the best ways to visualize? Should I look at the features that were selected and then use plots of them to demonstrate clusters? 
